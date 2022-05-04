@@ -1047,10 +1047,10 @@ static int __decode_answer(const unsigned char *message, /* packet */
 }
 
 
-uint16_t dnsrand_next(int urand_fd, int def_value) {
+int dnsrand_next(int urand_fd, int def_value) {
 	if (urand_fd == -1) return def_value;
-	uint16_t val;
-	if(read(urand_fd, &val, 2) != 2) return def_value;
+	int val;
+	if(read(urand_fd, &val, sizeof(int)) != sizeof(int)) return def_value;
 	return val;
 }
 
