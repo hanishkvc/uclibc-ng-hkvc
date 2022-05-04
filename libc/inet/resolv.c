@@ -1177,7 +1177,6 @@ int __dns_lookup(const char *name,
 			local_ns_num = 0;
 		local_id = dnsrand_next(urand_fd, local_id++);
 		local_id &= 0xffff;
-		DPRINTF("uClibc:DBUG:local_id:0x%hx\n", local_id);
 		/* write new values back while still under lock */
 		last_id = local_id;
 		last_ns_num = local_ns_num;
