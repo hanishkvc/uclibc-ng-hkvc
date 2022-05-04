@@ -1046,11 +1046,17 @@ static int __decode_answer(const unsigned char *message, /* packet */
 	return i + RRFIXEDSZ + a->rdlength;
 }
 
-
+#define DNSRAND_RESEED_CNT 128
 int dnsrand_next(int urand_fd, int def_value) {
+	static int cnt = -1;
 	if (urand_fd == -1) return def_value;
-	int val;
-	if(read(urand_fd, &val, sizeof(int)) != sizeof(int)) return def_value;
+	cnt += 1;
+	if ((cnt%DNSRAND_RESEED_CNT) == 0) {
+		int ival;
+		if(read(urand_fd, &ival, sizeof(int)) != sizeof(int)) return def_value;
+		srandom(ival);
+	}
+	int val = random(); // We dont need reproducible pseudo-random seq behaviour, so not bothering with random_r
 	return val;
 }
 
