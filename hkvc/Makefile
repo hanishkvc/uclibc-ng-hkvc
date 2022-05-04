@@ -1,5 +1,6 @@
 
-LPATH="/usr/x86_64-linux-uclibc/usr/lib/"
+BPATH=/usr/x86_64-linux-uclibc/usr
+LPATH=${BPATH}/lib/
 
 # Ensure gcc doesnt include the default set of paths and files wrt includes and libraries
 # Dont forget -nostdinc++ for c++ files
@@ -13,6 +14,16 @@ ISET=-I /usr/lib/gcc/x86_64-linux-gnu/8/include/ -I ../../linux-headers/include/
 # crtn.o : exit .init and .fini
 # libc.a : __uClibc_main and remaining c runtime
 LSET=-L ${LPATH} ${LPATH}crt1.o ${LPATH}crti.o ${LPATH}crtn.o -lc
+
+all: testdns
+
+#
+# Additional steps
+# In /usr/x86_64-linux-uclibc/usr/include/limits.h replace # include_next <limits.h> by # include <linux/limits.h>
+#
+
+patch:
+	/bin/echo -e '1,$$s/include_next <limits/include <linux\/limits/g\nw\nq' | sudo ed ${BPATH}/include/limits.h
 
 testdns: testdns.c
 	gcc -o testdns testdns.c -static ${CLEANSLATE} ${ISET} ${LSET}
