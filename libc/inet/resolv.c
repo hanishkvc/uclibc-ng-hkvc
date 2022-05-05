@@ -1090,6 +1090,7 @@ int dnsrand_next(int urand_fd, int def_value) {
 		if (urand_fd != -1) {
 			if(read(urand_fd, &ival, sizeof(int)) == sizeof(int)) { // small reads like few bytes here should be safe in general.
 				bUseTime = 0;
+				printf("uCLibC:DBUG:DnsRandNext:URandom:0x%lx\n", ival);
 			}
 		}
 		if (bUseTime == 1) {
@@ -1097,15 +1098,19 @@ int dnsrand_next(int urand_fd, int def_value) {
 			struct timespec ts;
 			if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
 				ival = random();
+				printf("uCLibC:DBUG:DnsRandNext:Random:0x%lx\n", ival);
 			} else {
 				ival = (ts.tv_sec + ts.tv_nsec)%INT_MAX;
+				printf("uCLibC:DBUG:DnsRandNext:Clocky:0x%lx\n", ival);
 			}
 #else
 			ival = random();
+			printf("uCLibC:DBUG:DnsRandNext:Random:0x%lx\n", ival);
 #endif
 		}
 		srandom(ival);
 		nextReSeedWindow = DNSRAND_RESEED_CNT + (random()%DNSRAND_RESEED_CNT);
+		printf("uCLibC:DBUG:DnsRandNext:Window:%d\n", nextReSeedWindow);
 	}
 	int val = random(); // We dont need reproducible pseudo-random seq behaviour, so not bothering with random_r
 	return val;
