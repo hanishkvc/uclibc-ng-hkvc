@@ -1047,17 +1047,69 @@ static int __decode_answer(const unsigned char *message, /* packet */
 }
 
 #define DNSRAND_RESEED_CNT 128
+#undef DNSRAND_FORCE_SIMPLECOUNTERMODE
+/**
+ * Get Next Random value needed wrt dns logic using one mechanism or the other.
+ *
+ * If some target doesnt support urandom nor realtime clock OR for some reason
+ * if a platform developer doesnt want to use random dns query id etal, then
+ * they can define DNSRAND_FORCE_SIMPLECOUNTERMODE so that a simple incrementing
+ * counter is used.
+ *
+ * In all other scenarios, the logic will use c library random call to generate
+ * the dns query id etal. This also keeps the logic faster by not depending on
+ * a more involved CPRNG kind of logic nor on a kernel to user space handshake.
+ * However to ensure that pseudo random sequences based on a given seeding of the
+ * PRNG logic, is not used for too long so as to allow a advarsary to guess the
+ * next number, srandom is used periodically to reseed PRNG logic in any possible
+ * way, when and where possible.
+ *
+ * To help with this periodic reseeding, by default the logic will first try to
+ * see if it can get some relatively random number using /dev/urandom. If not it
+ * will try to use the current time as a substitute. If neither of them work out
+ * and or are not available, then the same pseudo random sequence will continue,
+ * which is either way slightly better than the simple incrementing counter that
+ * is being replaced by this logic.
+ *
+ * Also to add bit more of variance wrt this periodic reseeding, the period interval
+ * at which this reseeding occurs keeps changing within a predefined window. The
+ * window is controlled based on how often the requests for dns query (and inturn
+ * dnsrand_next) occurs, as well as a self driven periodically changing request count.
+ *
+ */
 int dnsrand_next(int urand_fd, int def_value) {
+#ifdef DNSRAND_FORCE_SIMPLECOUNTERMODE
+	return def_value;
+#else
 	static int cnt = -1;
-	if (urand_fd == -1) return def_value;
+	static int nextReSeedWindow = DNSRAND_RESEED_CNT;
 	cnt += 1;
-	if ((cnt%DNSRAND_RESEED_CNT) == 0) {
+	if ((cnt%nextReSeedWindow) == 0) {
 		int ival;
-		if(read(urand_fd, &ival, sizeof(int)) != sizeof(int)) return def_value;
+		int bUseTime = 1;
+		if (urand_fd != -1) {
+			if(read(urand_fd, &ival, sizeof(int)) == sizeof(int)) { // small reads like few bytes here should be safe in general.
+				bUseTime = 0;
+			}
+		}
+		if (bUseTime == 1) {
+#if defined __USE_POSIX199309 && defined __UCLIBC_HAS_REALTIME__
+			struct timespec ts;
+			if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+				ival = random();
+			} else {
+				ival = (ts.tv_sec + ts.tv_nsec)%INT_MAX;
+			}
+#else
+			ival = random();
+#endif
+		}
 		srandom(ival);
+		nextReSeedWindow = DNSRAND_RESEED_CNT + (random()%DNSRAND_RESEED_CNT);
 	}
 	int val = random(); // We dont need reproducible pseudo-random seq behaviour, so not bothering with random_r
 	return val;
+#endif
 }
 
 int dnsrand_setup(int *urand_fd, int def_value) {
