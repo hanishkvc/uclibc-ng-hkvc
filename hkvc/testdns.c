@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <stdlib.h>
 
 
 void test_dns(char *sName) {
@@ -18,10 +19,13 @@ void test_dns(char *sName) {
 }
 
 int main(int argc, char **argv) {
-	printf("hello world\n");
+	printf("TestDNS: hello world\n");
+	int sumGlobalRandoms = 0;
 	for(int i=1; i < argc; i++) {
 		test_dns(argv[i]);
+		sumGlobalRandoms += random();
 	}
+	printf("TestDNS: SumGlobalRandoms:%d\n", sumGlobalRandoms);
 	return 0;
 }
 
