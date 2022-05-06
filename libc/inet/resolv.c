@@ -1046,6 +1046,27 @@ static int __decode_answer(const unsigned char *message, /* packet */
 	return i + RRFIXEDSZ + a->rdlength;
 }
 
+
+int _dnsrand_getrandom(int urand_fd, int *rand_value) {
+	if (urand_fd != -1) {
+		if(read(urand_fd, rand_value, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
+			printf("uCLibC:DBUG:DnsRandGetRand:URandom:0x%lx\n", *rand_value);
+			return 0;
+		}
+	}
+#if defined __USE_POSIX199309 && defined __UCLIBC_HAS_REALTIME__
+	struct timespec ts;
+	if (clock_gettime(CLOCK_REALTIME, &ts) == 0) {
+		*rand_value = (ts.tv_sec + ts.tv_nsec) % INT_MAX;
+		printf("uCLibC:DBUG:DnsRandGetRand:Clocky:0x%lx\n", *rand_value);
+		return 0;
+	}
+#endif
+	printf("uCLibC:DBUG:DnsRandGetRand:Nothing:0x%lx\n", *rand_value);
+	return -1;
+}
+
+#define DNSRAND_PRNGSTATE_INT32LEN 32
 #define DNSRAND_RESEED_CNT 128
 #undef DNSRAND_FORCE_SIMPLECOUNTERMODE
 /**
@@ -1083,37 +1104,26 @@ int dnsrand_next(int urand_fd, int def_value) {
 #else
 	static int cnt = -1;
 	static int nextReSeedWindow = DNSRAND_RESEED_CNT;
-	int val;
+	static int32_t prngState[DNSRAND_PRNGSTATE_INT32LEN]; /* prng logic internally assumes int32_t wrt state array, so to help align if required */
+	static struct random_data prngData;
+	int32_t val;
+	int prngSeed = 0x19481869;
+
+	if (cnt == -1) {
+		_dnsrand_getrandom(urand_fd, &prngSeed);
+		memset(&prngData, 0, sizeof(prngData));
+		initstate_r(prngSeed, (char*)&prngState, DNSRAND_PRNGSTATE_INT32LEN*4, &prngData);
+	}
 	cnt += 1;
 	if ((cnt % nextReSeedWindow) == 0) {
-		int ival;
-		int bUseTime = 1;
-		if (urand_fd != -1) {
-			if(read(urand_fd, &ival, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
-				bUseTime = 0;
-				printf("uCLibC:DBUG:DnsRandNext:URandom:0x%lx\n", ival);
-			}
+		if (_dnsrand_getrandom(urand_fd, &prngSeed) == 0) {
+			srandom_r(prngSeed, &prngData);
 		}
-		if (bUseTime == 1) {
-#if defined __USE_POSIX199309 && defined __UCLIBC_HAS_REALTIME__
-			struct timespec ts;
-			if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
-				ival = random();
-				printf("uCLibC:DBUG:DnsRandNext:Random:0x%lx\n", ival);
-			} else {
-				ival = (ts.tv_sec + ts.tv_nsec) % INT_MAX;
-				printf("uCLibC:DBUG:DnsRandNext:Clocky:0x%lx\n", ival);
-			}
-#else
-			ival = random();
-			printf("uCLibC:DBUG:DnsRandNext:Random:0x%lx\n", ival);
-#endif
-		}
-		srandom(ival);
-		nextReSeedWindow = DNSRAND_RESEED_CNT + (random() % DNSRAND_RESEED_CNT);
+		random_r(&prngData, &val);
+		nextReSeedWindow = DNSRAND_RESEED_CNT + (val % DNSRAND_RESEED_CNT);
 		printf("uCLibC:DBUG:DnsRandNext:Window:%d\n", nextReSeedWindow);
 	}
-	val = random(); /* We dont need reproducible pseudo-random seq behaviour, so not bothering with random_r */
+	random_r(&prngData, &val);
 	return val;
 #endif
 }
