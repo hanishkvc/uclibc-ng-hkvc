@@ -1046,6 +1046,10 @@ static int __decode_answer(const unsigned char *message, /* packet */
 	return i + RRFIXEDSZ + a->rdlength;
 }
 
+/*
+ * Get a random int from urandom.
+ * Return 0 on success and -1 on failure.
+ */
 int _dnsrand_getrandom_urandom(int urand_fd, int *rand_value) {
 	if (urand_fd != -1) {
 		if(read(urand_fd, rand_value, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
@@ -1056,6 +1060,11 @@ int _dnsrand_getrandom_urandom(int urand_fd, int *rand_value) {
 	return -1;
 }
 
+/*
+ * Get a sort of random int by looking at current time in system realtime clock.
+ * Return 0 on success and -1 on failure.
+ * If realtime clock is not enabled, return failure.
+ */
 int _dnsrand_getrandom_clock(int *rand_value) {
 #if defined __USE_POSIX199309 && defined __UCLIBC_HAS_REALTIME__
 	struct timespec ts;
@@ -1068,7 +1077,11 @@ int _dnsrand_getrandom_clock(int *rand_value) {
 	return -1;
 }
 
-int _dnsrand_getrandom(int urand_fd, int *rand_value) {
+/*
+ * Try get a random int by first checking at urandom and then at realtime clock.
+ * Return 0 on success and -1 on failure.
+ */
+int _dnsrand_getrandom_urcl(int urand_fd, int *rand_value) {
 	if(_dnsrand_getrandom_urandom(urand_fd, rand_value) == 0) {
 		return 0;
 	}
@@ -1123,13 +1136,13 @@ int dnsrand_next(int urand_fd, int def_value) {
 	int prngSeed = 0x19481869;
 
 	if (cnt == -1) {
-		_dnsrand_getrandom(urand_fd, &prngSeed);
+		_dnsrand_getrandom_urcl(urand_fd, &prngSeed);
 		memset(&prngData, 0, sizeof(prngData));
 		initstate_r(prngSeed, (char*)&prngState, DNSRAND_PRNGSTATE_INT32LEN*4, &prngData);
 	}
 	cnt += 1;
 	if ((cnt % nextReSeedWindow) == 0) {
-		if (_dnsrand_getrandom(urand_fd, &prngSeed) == 0) {
+		if (_dnsrand_getrandom_urcl(urand_fd, &prngSeed) == 0) {
 			srandom_r(prngSeed, &prngData);
 		}
 		random_r(&prngData, &val);
