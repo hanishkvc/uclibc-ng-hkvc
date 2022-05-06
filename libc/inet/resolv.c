@@ -1080,6 +1080,10 @@ int _dnsrand_getrandom_clock(int *rand_value) {
 /*
  * Try get a random int by first checking at urandom and then at realtime clock.
  * Return 0 on success and -1 on failure.
+ *
+ * Chances are most embedded targets using linux/bsd/... could have urandom and
+ * also it can potentially give better random values, so try urandom first.
+ * However if failure wrt urandom, then try realtime clock based helper.
  */
 int _dnsrand_getrandom_urcl(int urand_fd, int *rand_value) {
 	if(_dnsrand_getrandom_urandom(urand_fd, rand_value) == 0) {
@@ -1094,22 +1098,15 @@ int _dnsrand_getrandom_urcl(int urand_fd, int *rand_value) {
 
 #define DNSRAND_PRNGSTATE_INT32LEN 32
 #define DNSRAND_RESEED_CNT 128
-#undef DNSRAND_FORCE_SIMPLECOUNTERMODE
-/**
- * Get Next Random value needed wrt dns logic using one mechanism or the other.
+/*
+ * This logic uses uclibc's random PRNG to generate random int. This keeps the
+ * logic fast by not depending on a more involved CPRNG kind of logic nor on a
+ * kernel to user space handshake at the core.
  *
- * If some target doesnt support urandom nor realtime clock OR for some reason
- * if a platform developer doesnt want to use random dns query id etal, then
- * they can define DNSRAND_FORCE_SIMPLECOUNTERMODE so that a simple incrementing
- * counter is used.
- *
- * In all other scenarios, the logic will use c library random call to generate
- * the dns query id etal. This also keeps the logic faster by not depending on
- * a more involved CPRNG kind of logic nor on a kernel to user space handshake.
  * However to ensure that pseudo random sequences based on a given seeding of the
- * PRNG logic, is not used for too long so as to allow a advarsary to guess the
- * next number, srandom is used periodically to reseed PRNG logic in any possible
- * way, when and where possible.
+ * PRNG logic, is not generated for too long so as to allow a advarsary to guess
+ * the internal states of the prng logic and inturn the next number, srandom is
+ * used periodically to reseed PRNG logic, when and where possible.
  *
  * To help with this periodic reseeding, by default the logic will first try to
  * see if it can get some relatively random number using /dev/urandom. If not it
@@ -1124,10 +1121,7 @@ int _dnsrand_getrandom_urcl(int urand_fd, int *rand_value) {
  * dnsrand_next) occurs, as well as a self driven periodically changing request count.
  *
  */
-int dnsrand_next(int urand_fd, int def_value) {
-#ifdef DNSRAND_FORCE_SIMPLECOUNTERMODE
-	return def_value;
-#else
+int _dnsrand_getrandom_prng(int urand_fd, int *rand_value) {
 	static int cnt = -1;
 	static int nextReSeedWindow = DNSRAND_RESEED_CNT;
 	static int32_t prngState[DNSRAND_PRNGSTATE_INT32LEN]; /* prng logic internally assumes int32_t wrt state array, so to help align if required */
@@ -1150,7 +1144,57 @@ int dnsrand_next(int urand_fd, int def_value) {
 		printf("uCLibC:DBUG:DnsRandNext:Window:%d\n", nextReSeedWindow);
 	}
 	random_r(&prngData, &val);
+	*rand_value = val;
+	return 0;
+}
+
+#undef DNSRAND_MODE_SIMPLECOUNTER
+#undef DNSRAND_MODE_URANDOM
+#undef DNSRAND_MODE_CLOCK
+/**
+ * If DNS query's id etal is generated using a simple counter, then it can be
+ * subjected to dns poisoning relatively easily, so adding some randomness can
+ * increase the difficulty wrt dns poisoning and is thus desirable.
+ *
+ * However given that embedded targets may or may not have different sources available
+ * with them to try generate random values, this logic tries to provides flexibility
+ * to the platform developer to decide, how they may want to handle this.
+ *
+ * If a given target doesnt support urandom nor realtime clock OR for some reason
+ * if the platform developer doesnt want to use random dns query id etal, then
+ * they can define DNSRAND_MODE_SIMPLECOUNTER so that a simple incrementing counter
+ * is used.
+ *
+ * However if the target has support for urandom or realtime clock, then the prng
+ * based random generation gives a good balance between randomness and performance,
+ * and inturn it is the default.
+ *
+ * If urandom is available on the target and one wants to keep things simple and use
+ * it directly, then one can define DNSRAND_MODE_URANDOM.
+ *
+ * If realtime clock is available on the target and one wants to keep things simple
+ * and use it directly, then one can define DNSRAND_MODE_CLOCK.
+ *
+ */
+int dnsrand_next(int urand_fd, int def_value) {
+	int val = def_value;
+#if defined DNSRAND_MODE_SIMPLECOUNTER
 	return val;
+#elif defined DNSRAND_MODE_URANDOM
+	if (_dnsrand_getrandom_urandom(urand_fd, &val) == 0) {
+		return val;
+	}
+	return def_value;
+#elif defined DNSRAND_MODE_CLOCK
+	if (_dnsrand_getrandom_clock(&val) == 0) {
+		return val;
+	}
+	return def_value;
+#else
+	if(_dnsrand_getrandom_prng(urand_fd, &val) == 0) {
+		return val;
+	}
+	return def_value;
 #endif
 }
 
