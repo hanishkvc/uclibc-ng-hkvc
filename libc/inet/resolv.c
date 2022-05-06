@@ -1083,12 +1083,13 @@ int dnsrand_next(int urand_fd, int def_value) {
 #else
 	static int cnt = -1;
 	static int nextReSeedWindow = DNSRAND_RESEED_CNT;
+	int val;
 	cnt += 1;
-	if ((cnt%nextReSeedWindow) == 0) {
+	if ((cnt % nextReSeedWindow) == 0) {
 		int ival;
 		int bUseTime = 1;
 		if (urand_fd != -1) {
-			if(read(urand_fd, &ival, sizeof(int)) == sizeof(int)) { // small reads like few bytes here should be safe in general.
+			if(read(urand_fd, &ival, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
 				bUseTime = 0;
 				printf("uCLibC:DBUG:DnsRandNext:URandom:0x%lx\n", ival);
 			}
@@ -1100,7 +1101,7 @@ int dnsrand_next(int urand_fd, int def_value) {
 				ival = random();
 				printf("uCLibC:DBUG:DnsRandNext:Random:0x%lx\n", ival);
 			} else {
-				ival = (ts.tv_sec + ts.tv_nsec)%INT_MAX;
+				ival = (ts.tv_sec + ts.tv_nsec) % INT_MAX;
 				printf("uCLibC:DBUG:DnsRandNext:Clocky:0x%lx\n", ival);
 			}
 #else
@@ -1109,17 +1110,21 @@ int dnsrand_next(int urand_fd, int def_value) {
 #endif
 		}
 		srandom(ival);
-		nextReSeedWindow = DNSRAND_RESEED_CNT + (random()%DNSRAND_RESEED_CNT);
+		nextReSeedWindow = DNSRAND_RESEED_CNT + (random() % DNSRAND_RESEED_CNT);
 		printf("uCLibC:DBUG:DnsRandNext:Window:%d\n", nextReSeedWindow);
 	}
-	int val = random(); // We dont need reproducible pseudo-random seq behaviour, so not bothering with random_r
+	val = random(); /* We dont need reproducible pseudo-random seq behaviour, so not bothering with random_r */
 	return val;
 #endif
 }
 
 int dnsrand_setup(int *urand_fd, int def_value) {
-	*urand_fd = open("/dev/urandom", O_RDONLY);
-	if (*urand_fd == -1) return def_value;
+	if (*urand_fd == -2) {
+		*urand_fd = open("/dev/urandom", O_RDONLY);
+	}
+	if (*urand_fd == -1) {
+		return def_value;
+	}
 	return dnsrand_next(*urand_fd, def_value);
 }
 
@@ -1148,7 +1153,7 @@ int __dns_lookup(const char *name,
 	/* Protected by __resolv_lock: */
 	static int last_ns_num = 0;
 	static uint16_t last_id = 1;
-	static int urand_fd = -1;
+	static int urand_fd = -2; /* -2 used for 1st time open attempt, -1 indicates non available urandom */
 
 	int i, j, fd, rc;
 	int packet_len;
