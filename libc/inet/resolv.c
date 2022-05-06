@@ -1199,13 +1199,12 @@ int dnsrand_next(int urand_fd, int def_value) {
 }
 
 int dnsrand_setup(int *urand_fd, int def_value) {
+#if !defined __UCLIBC_DNSRAND_MODE_SIMPLECOUNTER__ && !defined __UCLIBC_DNSRAND_MODE_CLOCK__
 	if (*urand_fd == -2) {
 		*urand_fd = open("/dev/urandom", O_RDONLY);
 	}
-	if (*urand_fd == -1) {
-		return def_value;
-	}
-	return dnsrand_next(*urand_fd, def_value);
+#endif
+	return def_value;
 }
 
 /* On entry:
