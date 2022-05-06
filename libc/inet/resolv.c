@@ -1046,14 +1046,17 @@ static int __decode_answer(const unsigned char *message, /* packet */
 	return i + RRFIXEDSZ + a->rdlength;
 }
 
-
-int _dnsrand_getrandom(int urand_fd, int *rand_value) {
+int _dnsrand_getrandom_urandom(int urand_fd, int *rand_value) {
 	if (urand_fd != -1) {
 		if(read(urand_fd, rand_value, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
 			printf("uCLibC:DBUG:DnsRandGetRand:URandom:0x%lx\n", *rand_value);
 			return 0;
 		}
 	}
+	return -1;
+}
+
+int _dnsrand_getrandom_clock(int *rand_value) {
 #if defined __USE_POSIX199309 && defined __UCLIBC_HAS_REALTIME__
 	struct timespec ts;
 	if (clock_gettime(CLOCK_REALTIME, &ts) == 0) {
@@ -1062,6 +1065,16 @@ int _dnsrand_getrandom(int urand_fd, int *rand_value) {
 		return 0;
 	}
 #endif
+	return -1;
+}
+
+int _dnsrand_getrandom(int urand_fd, int *rand_value) {
+	if(_dnsrand_getrandom_urandom(urand_fd, rand_value) == 0) {
+		return 0;
+	}
+	if (_dnsrand_getrandom_clock(rand_value) == 0) {
+		return 0;
+	}
 	printf("uCLibC:DBUG:DnsRandGetRand:Nothing:0x%lx\n", *rand_value);
 	return -1;
 }
