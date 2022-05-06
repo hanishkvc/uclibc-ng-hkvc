@@ -1344,6 +1344,52 @@ config UCLIBC_HAS_RESOLVER_SUPPORT
 	  ns_name_pack, ns_name_compress, ns_name_skip, dn_skipname,
 	  ns_get16, ns_get32, ns_put16, ns_put32
 
+choice
+	prompt "DNS Query ID generation"
+	default UCLIBC_DNSRAND_MODE_PRNGPLUS
+	help
+	  Control how successive dns query ids' are generated during
+	  dns lookup.
+
+config UCLIBC_DNSRAND_MODE_SIMPLECOUNTER
+	bool "simplecounter"
+	help
+	  "simplecounter" uses a simple counter to generate dns query id.
+	  This is a very simple logic and can be subjected to dns poison
+	  attack relatively easily.
+	  It is recommended to avoid this option.
+
+config UCLIBC_DNSRAND_MODE_URANDOM
+	bool "urandom"
+	help
+	  "urandom" uses /dev/urandom available under many unix flavours
+	  to generate dns query id. This can generate good random ids.
+	  However this is relatively slow compared to the other options,
+	  as it involves a handshake across the kernel-userspace boundary.
+
+config UCLIBC_DNSRAND_MODE_CLOCK
+	bool "clock"
+	depends on UCLIBC_HAS_REALTIME
+	help
+	  "clock" uses realtime clock of the system to generate plausibly
+	  random dns query id. Systems require to have nanosec granularity
+	  wrt the time info for this to generate plausibly random values.
+
+config UCLIBC_DNSRAND_MODE_PRNGPLUS
+	bool "prngplus"
+	help
+	  "prngplus" uses the random prng available within uclibc, to
+	  generate the dns query id. This is fast compared to the other
+	  good options available. It periodically reseeds the prng using
+	  random value generated from either urandom or else clock, if
+	  either of them is available, to try and make it more difficult
+	  to infer internal state of prng from a sequence of generated
+	  random values.
+	  This is the default.
+
+endchoice
+
+
 endif
 
 
