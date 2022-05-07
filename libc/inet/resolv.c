@@ -1051,12 +1051,17 @@ static int __decode_answer(const unsigned char *message, /* packet */
  * Return 0 on success and -1 on failure.
  * This will dip into the entropy pool maintaind by the system.
  */
-int _dnsrand_getrandom_urandom(int urand_fd, int *rand_value) {
-	if (urand_fd != -1) {
-		if(read(urand_fd, rand_value, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
-			printf("uCLibC:DBUG:DnsRandGetRand:URandom:0x%lx\n", *rand_value);
-			return 0;
+int _dnsrand_getrandom_urandom(int *rand_value) {
+	static int urand_fd = -1;
+	if (urand_fd == -1) {
+		urand_fd = open("/dev/urandom", O_RDONLY);
+		if (urand_fd == -1) {
+			return -1;
 		}
+	}
+	if(read(urand_fd, rand_value, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
+		printf("uCLibC:DBUG:DnsRandGetRand:URandom:0x%lx\n", *rand_value);
+		return 0;
 	}
 	return -1;
 }
@@ -1088,8 +1093,8 @@ int _dnsrand_getrandom_clock(int *rand_value) {
  * also it can potentially give better random values, so try urandom first.
  * However if there is failure wrt urandom, then try realtime clock based helper.
  */
-int _dnsrand_getrandom_urcl(int urand_fd, int *rand_value) {
-	if(_dnsrand_getrandom_urandom(urand_fd, rand_value) == 0) {
+int _dnsrand_getrandom_urcl(int *rand_value) {
+	if(_dnsrand_getrandom_urandom(rand_value) == 0) {
 		return 0;
 	}
 	if (_dnsrand_getrandom_clock(rand_value) == 0) {
@@ -1124,7 +1129,7 @@ int _dnsrand_getrandom_urcl(int urand_fd, int *rand_value) {
  * as well as a self driven periodically changing request count boundry.
  *
  */
-int _dnsrand_getrandom_prng(int urand_fd, int *rand_value) {
+int _dnsrand_getrandom_prng(int *rand_value) {
 	static int cnt = -1;
 	static int nextReSeedWindow = DNSRAND_RESEED_CNT;
 	static int32_t prngState[DNSRAND_PRNGSTATE_INT32LEN]; /* prng logic internally assumes int32_t wrt state array, so to help align if required */
@@ -1133,13 +1138,13 @@ int _dnsrand_getrandom_prng(int urand_fd, int *rand_value) {
 	int prngSeed = 0x19481869;
 
 	if (cnt == -1) {
-		_dnsrand_getrandom_urcl(urand_fd, &prngSeed);
+		_dnsrand_getrandom_urcl(&prngSeed);
 		memset(&prngData, 0, sizeof(prngData));
 		initstate_r(prngSeed, (char*)&prngState, DNSRAND_PRNGSTATE_INT32LEN*4, &prngData);
 	}
 	cnt += 1;
 	if ((cnt % nextReSeedWindow) == 0) {
-		if (_dnsrand_getrandom_urcl(urand_fd, &prngSeed) == 0) {
+		if (_dnsrand_getrandom_urcl(&prngSeed) == 0) {
 			srandom_r(prngSeed, &prngData);
 		}
 		random_r(&prngData, &val);
@@ -1180,12 +1185,12 @@ int _dnsrand_getrandom_prng(int urand_fd, int *rand_value) {
  * requires nanosec granularity wrt time info to give plausible randomness.
  *
  */
-int dnsrand_next(int urand_fd, int def_value) {
+int dnsrand_next(int def_value) {
 	int val = def_value;
 #if defined __UCLIBC_DNSRAND_MODE_SIMPLECOUNTER__
 	return val;
 #elif defined __UCLIBC_DNSRAND_MODE_URANDOM__
-	if (_dnsrand_getrandom_urandom(urand_fd, &val) == 0) {
+	if (_dnsrand_getrandom_urandom(&val) == 0) {
 		return val;
 	}
 	return def_value;
@@ -1195,19 +1200,14 @@ int dnsrand_next(int urand_fd, int def_value) {
 	}
 	return def_value;
 #else
-	if(_dnsrand_getrandom_prng(urand_fd, &val) == 0) {
+	if(_dnsrand_getrandom_prng(&val) == 0) {
 		return val;
 	}
 	return def_value;
 #endif
 }
 
-int dnsrand_setup(int *urand_fd, int def_value) {
-#if !defined __UCLIBC_DNSRAND_MODE_SIMPLECOUNTER__ && !defined __UCLIBC_DNSRAND_MODE_CLOCK__
-	if (*urand_fd == -2) {
-		*urand_fd = open("/dev/urandom", O_RDONLY);
-	}
-#endif
+int dnsrand_setup(int def_value) {
 	return def_value;
 }
 
@@ -1236,7 +1236,6 @@ int __dns_lookup(const char *name,
 	/* Protected by __resolv_lock: */
 	static int last_ns_num = 0;
 	static uint16_t last_id = 1;
-	static int urand_fd = -2; /* -2 used for 1st time open attempt, -1 indicates non available urandom */
 
 	int i, j, fd, rc;
 	int packet_len;
@@ -1316,7 +1315,7 @@ int __dns_lookup(const char *name,
 		}
 		/* first time? pick starting server etc */
 		if (local_ns_num < 0) {
-			local_id = dnsrand_setup(&urand_fd, last_id);
+			local_id = dnsrand_setup(last_id);
 /*TODO: implement /etc/resolv.conf's "options rotate"
  (a.k.a. RES_ROTATE bit in _res.options)
 			local_ns_num = 0;
@@ -1326,7 +1325,7 @@ int __dns_lookup(const char *name,
 		}
 		if (local_ns_num >= __nameservers)
 			local_ns_num = 0;
-		local_id = dnsrand_next(urand_fd, ++local_id);
+		local_id = dnsrand_next(++local_id);
 		local_id &= 0xffff;
 		/* write new values back while still under lock */
 		last_id = local_id;
