@@ -1054,9 +1054,14 @@ static int __decode_answer(const unsigned char *message, /* packet */
  */
 int _dnsrand_getrandom_urandom(int *rand_value) {
 	static int urand_fd = -1;
+	static int errCnt = 0;
 	if (urand_fd == -1) {
 		urand_fd = open("/dev/urandom", O_RDONLY);
 		if (urand_fd == -1) {
+			if ((errCnt % 16) == 0) {
+				DPRINTF("uCLibC:WARN:DnsRandGetRand: urandom is unavailable...\n");
+			}
+			errCnt += 1;
 			return -1;
 		}
 	}
