@@ -1060,7 +1060,7 @@ int _dnsrand_getrandom_urandom(int *rand_value) {
 		}
 	}
 	if(read(urand_fd, rand_value, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
-		printf("uCLibC:DBUG:DnsRandGetRand:URandom:0x%lx\n", *rand_value);
+		DPRINTF("uCLibC:DBUG:DnsRandGetRand: URandom:0x%lx\n", *rand_value);
 		return 0;
 	}
 	return -1;
@@ -1078,7 +1078,7 @@ int _dnsrand_getrandom_clock(int *rand_value) {
 	struct timespec ts;
 	if (clock_gettime(CLOCK_REALTIME, &ts) == 0) {
 		*rand_value = (ts.tv_sec + ts.tv_nsec) % INT_MAX;
-		printf("uCLibC:DBUG:DnsRandGetRand:Clocky:0x%lx\n", *rand_value);
+		DPRINTF("uCLibC:DBUG:DnsRandGetRand: Clock:0x%lx\n", *rand_value);
 		return 0;
 	}
 #endif
@@ -1100,7 +1100,7 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
 	if (_dnsrand_getrandom_clock(rand_value) == 0) {
 		return 0;
 	}
-	printf("uCLibC:DBUG:DnsRandGetRand:Nothing:0x%lx\n", *rand_value);
+	DPRINTF("uCLibC:DBUG:DnsRandGetRand: URCL:Nothing:0x%lx\n", *rand_value);
 	return -1;
 }
 
@@ -1149,7 +1149,7 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 		}
 		random_r(&prngData, &val);
 		nextReSeedWindow = DNSRAND_RESEED_CNT + (val % DNSRAND_RESEED_CNT);
-		printf("uCLibC:DBUG:DnsRandNext:Window:%d\n", nextReSeedWindow);
+		DPRINTF("uCLibC:DBUG:DnsRandNext: PRNGWindow:%d\n", nextReSeedWindow);
 	}
 	random_r(&prngData, &val);
 	*rand_value = val;
@@ -1183,6 +1183,10 @@ int _dnsrand_getrandom_prng(int *rand_value) {
  * keep things simple and use it directly, then define __UCLIBC_DNSRAND_MODE_CLOCK__.
  * Do note that this may not be as random as urandom or prngplus, in some cases. This
  * requires nanosec granularity wrt time info to give plausible randomness.
+ *
+ * If either the URandom or Clock based get random fails, then the logic is setup to
+ * try fallback to the simple counter mode, with the help of the def_value setup to
+ * be the next increment wrt previously used value, by the caller of dnsrand_next.
  *
  */
 int dnsrand_next(int def_value) {
