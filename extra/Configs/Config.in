@@ -1363,11 +1363,10 @@ config UCLIBC_DNSRAND_MODE_URANDOM
 	bool "urandom"
 	help
 	  "urandom" uses /dev/urandom available under many unix flavours
-	  to generate dns query id. This can generate good random ids.
+	  to generate dns query id. This can generate good random ids,
+	  by dipping into the entropy pool maintained by the system.
 	  However this is relatively slow compared to the other options,
 	  as it involves a handshake across the kernel-userspace boundary.
-	  Also do note that this will be dipping into the entropy pool
-	  maintained by the system.
 
 config UCLIBC_DNSRAND_MODE_CLOCK
 	bool "clock"
@@ -1383,12 +1382,11 @@ config UCLIBC_DNSRAND_MODE_PRNGPLUS
 	help
 	  "prngplus" uses the random prng available within uclibc, to
 	  generate the dns query id. This tries to provide a good balance
-	  between speed and randomness. This is fast compared to the other
-	  good options available. It periodically reseeds the prng using
-	  random value generated from either urandom or else clock, if
-	  either of them is available, to try and make it more difficult to
-	  infer internal state of prng from unbroken sequences of generated
-	  random values.
+	  between speed and randomness to an extent. It periodically reseeds
+	  the prng using random value generated from either the urandom or
+	  else the clock, if either of them is available, to try and make it
+	  difficult to infer internal state of prng from unbroken sequences
+	  of generated random values.
 	  This is the default.
 
 endchoice

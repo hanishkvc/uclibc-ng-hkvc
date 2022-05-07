@@ -1049,6 +1049,7 @@ static int __decode_answer(const unsigned char *message, /* packet */
 /*
  * Get a random int from urandom.
  * Return 0 on success and -1 on failure.
+ *
  * This will dip into the entropy pool maintaind by the system.
  */
 int _dnsrand_getrandom_urandom(int *rand_value) {
@@ -1067,8 +1068,9 @@ int _dnsrand_getrandom_urandom(int *rand_value) {
 }
 
 /*
- * Try get sort of random int by looking at current time in system realtime clock.
+ * Try get a sort of random int by looking at current time in system realtime clock.
  * Return 0 on success and -1 on failure.
+ *
  * This requries the realtime related uclibc feature to be enabled and also
  * the system should have a clock source with nanosec resolution to be mapped
  * to CLOCK_REALTIME, for this to generate values that appear random plausibly.
@@ -1179,22 +1181,24 @@ int _dnsrand_getrandom_prng(int *rand_value) {
  * counter is used.
  *
  * However if the target has support for urandom or realtime clock, then the prngplus
- * based random generation gives a good balance between randomness and performance,
- * and inturn it is the default. The define is __UCLIBC_DNSRAND_MODE_PRNGPLUS__
+ * based random generation tries to give a good balance between randomness and performance.
+ * This is the default and is enabled when no other mode is defined. It is also indirectly
+ * enabled by defining __UCLIBC_DNSRAND_MODE_PRNGPLUS__ instead of the other modes.
  *
  * If urandom is available on the target and one wants to keep things simple and use
- * it directly, then one can define __UCLIBC_DNSRAND_MODE_URANDOM__. However do note
- * that this will be relatively slower compared to other options. Also it will be
- * dipping into the entropy pool available in the system.
+ * it directly, then one can define __UCLIBC_DNSRAND_MODE_URANDOM__. Do note that this
+ * will be relatively slower compared to other options. But it can normally generate
+ * good random values/ids by dipping into the entropy pool available in the system.
  *
  * If system realtime clock is available on target and enabled, then if one wants to
  * keep things simple and use it directly, then define __UCLIBC_DNSRAND_MODE_CLOCK__.
- * Do note that this may not be as random as urandom or prngplus, in some cases. This
- * requires nanosec granularity wrt time info to give plausible randomness.
+ * Do note that this requires nanosecond resolution / granularity wrt the realtime
+ * clock source to generate plausibly random values/ids.
  *
  * If either the URandom or Clock based get random fails, then the logic is setup to
- * try fallback to the simple counter mode, with the help of the def_value setup to
- * be the next increment wrt previously used value, by the caller of dnsrand_next.
+ * try fallback to the simple counter mode, with the help of the def_value, which is
+ * setup to be the next increment wrt the previously generated / used value, by the
+ * caller of dnsrand_next.
  *
  */
 int dnsrand_next(int def_value) {
