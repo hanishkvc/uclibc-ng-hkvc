@@ -1105,7 +1105,8 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
 }
 
 #define DNSRAND_PRNGSTATE_INT32LEN 32
-#define DNSRAND_RESEED_CNT 128
+#define DNSRAND_RESEED_OP1 (DNSRAND_PRNGSTATE_INT32LEN/2)
+#define DNSRAND_RESEED_OP2 (DNSRAND_PRNGSTATE_INT32LEN/4)
 /*
  * This logic uses uclibc's random PRNG to generate random int. This keeps the
  * logic fast by not depending on a more involved CPRNG kind of logic nor on a
@@ -1135,7 +1136,7 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
  */
 int _dnsrand_getrandom_prng(int *rand_value) {
 	static int cnt = -1;
-	static int nextReSeedWindow = DNSRAND_RESEED_CNT;
+	static int nextReSeedWindow = DNSRAND_RESEED_OP1;
 	static int32_t prngState[DNSRAND_PRNGSTATE_INT32LEN]; /* prng logic internally assumes int32_t wrt state array, so to help align if required */
 	static struct random_data prngData;
 	int32_t val;
@@ -1152,11 +1153,12 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 			srandom_r(prngSeed, &prngData);
 		}
 		random_r(&prngData, &val);
-		nextReSeedWindow = DNSRAND_RESEED_CNT + (val % DNSRAND_RESEED_CNT);
+		nextReSeedWindow = DNSRAND_RESEED_OP1 + (val % DNSRAND_RESEED_OP2);
 		DPRINTF("uCLibC:DBUG:DnsRandNext: PRNGWindow:%d\n", nextReSeedWindow);
 	}
 	random_r(&prngData, &val);
 	*rand_value = val;
+	DPRINTF("uCLibC:DBUG:DnsRandGetRand: PRNGPlus: %d, 0x%lx\n", cnt, *rand_value);
 	return 0;
 }
 
