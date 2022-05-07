@@ -1120,8 +1120,9 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
  * To help with this periodic reseeding, by default the logic will first try to
  * see if it can get some relatively random number using /dev/urandom. If not it
  * will try use the current time to generate plausibly random value as substitute.
- * If neither of these sources are available, then the same pseudo random sequence
- * will continue, for now.
+ * If neither of these sources are available, then the prng itself is used to seed
+ * a new state, so that the pseudo random sequence can continue, which is better
+ * than the fallback simple counter.
  *
  * Also to add bit more of variance wrt this periodic reseeding, the period interval
  * at which this reseeding occurs keeps changing within a predefined window. The
@@ -1149,9 +1150,10 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 	}
 	cnt += 1;
 	if ((cnt % nextReSeedWindow) == 0) {
-		if (_dnsrand_getrandom_urcl(&prngSeed) == 0) {
-			srandom_r(prngSeed, &prngData);
+		if (_dnsrand_getrandom_urcl(&prngSeed) != 0) {
+			random_r(&prngData, &prngSeed);
 		}
+		srandom_r(prngSeed, &prngData);
 		random_r(&prngData, &val);
 		nextReSeedWindow = DNSRAND_RESEED_OP1 + (val % DNSRAND_RESEED_OP2);
 		DPRINTF("uCLibC:DBUG:DnsRandNext: PRNGWindow:%d\n", nextReSeedWindow);
