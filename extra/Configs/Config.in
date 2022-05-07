@@ -1351,14 +1351,6 @@ choice
 	  Control how successive dns query ids' are generated during
 	  dns lookup.
 
-config UCLIBC_DNSRAND_MODE_SIMPLECOUNTER
-	bool "simplecounter"
-	help
-	  "simplecounter" uses a simple counter to generate dns query id.
-	  This is a very simple logic and can be subjected to dns poison
-	  attack relatively easily.
-	  It is recommended to avoid this option.
-
 config UCLIBC_DNSRAND_MODE_URANDOM
 	bool "urandom"
 	help
@@ -1375,7 +1367,8 @@ config UCLIBC_DNSRAND_MODE_CLOCK
 	  "clock" uses CLOCK_REALTIME of the system to generate plausibly
 	  random dns query id. Systems require to have clock source with
 	  nanosec granularity mapped to this clock id for this to generate
-	  plausibly random values.
+	  plausibly random values. However has processor and io performances
+	  improve in future, its effectiveness can get impacted.
 
 config UCLIBC_DNSRAND_MODE_PRNGPLUS
 	bool "prngplus"
@@ -1388,6 +1381,14 @@ config UCLIBC_DNSRAND_MODE_PRNGPLUS
 	  difficult to infer internal state of prng from unbroken sequences
 	  of generated random values.
 	  This is the default.
+
+config UCLIBC_DNSRAND_MODE_SIMPLECOUNTER
+	bool "simplecounter"
+	help
+	  "simplecounter" uses a simple counter to generate dns query id.
+	  This is a very simple logic and can be subjected to dns poison
+	  attack relatively easily.
+	  It is recommended to avoid this option.
 
 endchoice
 
