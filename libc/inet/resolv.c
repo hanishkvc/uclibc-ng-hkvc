@@ -1059,7 +1059,7 @@ int _dnsrand_getrandom_urandom(int *rand_value) {
 			return -1;
 		}
 	}
-	if(read(urand_fd, rand_value, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
+	if (read(urand_fd, rand_value, sizeof(int)) == sizeof(int)) { /* small reads like few bytes here should be safe in general. */
 		DPRINTF("uCLibC:DBUG:DnsRandGetRand: URandom:0x%lx\n", *rand_value);
 		return 0;
 	}
@@ -1094,7 +1094,7 @@ int _dnsrand_getrandom_clock(int *rand_value) {
  * However if there is failure wrt urandom, then try realtime clock based helper.
  */
 int _dnsrand_getrandom_urcl(int *rand_value) {
-	if(_dnsrand_getrandom_urandom(rand_value) == 0) {
+	if (_dnsrand_getrandom_urandom(rand_value) == 0) {
 		return 0;
 	}
 	if (_dnsrand_getrandom_clock(rand_value) == 0) {
@@ -1112,7 +1112,7 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
  * kernel to user space handshake at the core.
  *
  * However to ensure that pseudo random sequences based on a given seeding of the
- * PRNG logic, is not generated for too long so as to allow a advarsary to guess
+ * PRNG logic, is not generated for too long so as to allow a advarsary to try guess
  * the internal states of the prng logic and inturn the next number, srandom is
  * used periodically to reseed PRNG logic, when and where possible.
  *
@@ -1127,6 +1127,10 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
  * window is controlled based on how often this logic is called (which currently
  * will depend on how often requests for dns query (and inturn dnsrand_next) occurs,
  * as well as a self driven periodically changing request count boundry.
+ *
+ * NOTE: The Random PRNG used here maintains its own internal state data, so that
+ * it doesnt impact any other users of random prng calls in the system/program
+ * compiled against uclibc.
  *
  */
 int _dnsrand_getrandom_prng(int *rand_value) {
@@ -1204,7 +1208,7 @@ int dnsrand_next(int def_value) {
 	}
 	return def_value;
 #else
-	if(_dnsrand_getrandom_prng(&val) == 0) {
+	if (_dnsrand_getrandom_prng(&val) == 0) {
 		return val;
 	}
 	return def_value;
