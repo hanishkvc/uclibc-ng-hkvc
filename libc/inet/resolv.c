@@ -1164,6 +1164,7 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 		random_r(&prngData, &val);
 		nextReSeedWindow = DNSRAND_RESEED_OP1 + (val % DNSRAND_RESEED_OP2);
 		DPRINTF("uCLibC:DBUG:DnsRandNext: PRNGWindow:%d\n", nextReSeedWindow);
+		cnt = 0;
 	}
 	random_r(&prngData, &val);
 	*rand_value = val;
