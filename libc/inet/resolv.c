@@ -1112,8 +1112,13 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
 }
 
 #define DNSRAND_PRNGSTATE_INT32LEN 32
+#ifdef DNSRAND_PRNGRUN_SHORT
 #define DNSRAND_RESEED_OP1 (DNSRAND_PRNGSTATE_INT32LEN/2)
 #define DNSRAND_RESEED_OP2 (DNSRAND_PRNGSTATE_INT32LEN/4)
+#else
+#define DNSRAND_RESEED_OP1 (DNSRAND_PRNGSTATE_INT32LEN*2)
+#define DNSRAND_RESEED_OP2 (DNSRAND_PRNGSTATE_INT32LEN/2)
+#endif
 /*
  * This logic uses uclibc's random PRNG to generate random int. This keeps the
  * logic fast by not depending on a more involved CPRNG kind of logic nor on a
@@ -1137,6 +1142,11 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
  * will depend on how often requests for dns query (and inturn dnsrand_next) occurs,
  * as well as a self driven periodically changing request count boundry.
  *
+ * The internally generated random values are not directly exposed, instead result
+ * of adjacent values large mult with mod is used to greatly reduce the possibility
+ * of trying to infer the internal values from externally exposed random values.
+ * This should also make longer run of prng ok to an extent.
+ *
  * NOTE: The Random PRNG used here maintains its own internal state data, so that
  * it doesnt impact any other users of random prng calls in the system/program
  * compiled against uclibc.
@@ -1147,7 +1157,8 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 	static int nextReSeedWindow = DNSRAND_RESEED_OP1;
 	static int32_t prngState[DNSRAND_PRNGSTATE_INT32LEN]; /* prng logic internally assumes int32_t wrt state array, so to help align if required */
 	static struct random_data prngData;
-	int32_t val;
+	int32_t val, val2;
+	int calc;
 	int prngSeed = 0x19481869;
 
 	if (cnt == -1) {
@@ -1167,8 +1178,10 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 		cnt = 0;
 	}
 	random_r(&prngData, &val);
-	*rand_value = val;
-	DPRINTF("uCLibC:DBUG:DnsRandGetRand: PRNGPlus: %d, 0x%lx\n", cnt, *rand_value);
+	random_r(&prngData, &val2);
+	calc = ((long)val * (long)val2) % INT_MAX;
+	*rand_value = calc;
+	DPRINTF("uCLibC:DBUG:DnsRandGetRand: PRNGPlus: %d, 0x%lx 0x%lx 0x%lx\n", cnt, val, val2, *rand_value);
 	return 0;
 }
 
