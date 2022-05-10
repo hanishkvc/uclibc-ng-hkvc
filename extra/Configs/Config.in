@@ -1378,9 +1378,10 @@ config UCLIBC_DNSRAND_MODE_PRNGPLUS
 	  generate the dns query id. This tries to provide a good balance
 	  between speed and randomness to an extent. It periodically reseeds
 	  the prng using random value generated from either the urandom or
-	  else the clock, if either of them is available, as well as one way
-	  transform to make it difficult to infer internal state of prng from
-	  unbroken sequences of exposed random values.
+	  else the clock, if either of them is available. Additionally applies
+	  transform (one way, if possible) on internal generated random values.
+	  These make it difficult to infer internal state of prng from unbroken
+	  sequences of exposed random values.
 	  This is the default.
 
 config UCLIBC_DNSRAND_MODE_SIMPLECOUNTER
