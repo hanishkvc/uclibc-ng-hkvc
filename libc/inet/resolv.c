@@ -1112,12 +1112,13 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
 }
 
 #define DNSRAND_PRNGSTATE_INT32LEN 32
+#undef DNSRAND_PRNGRUN_SHORT
 #ifdef DNSRAND_PRNGRUN_SHORT
 #define DNSRAND_RESEED_OP1 (DNSRAND_PRNGSTATE_INT32LEN/2)
 #define DNSRAND_RESEED_OP2 (DNSRAND_PRNGSTATE_INT32LEN/4)
 #else
-#define DNSRAND_RESEED_OP1 (DNSRAND_PRNGSTATE_INT32LEN*2)
-#define DNSRAND_RESEED_OP2 (DNSRAND_PRNGSTATE_INT32LEN/2)
+#define DNSRAND_RESEED_OP1 (DNSRAND_PRNGSTATE_INT32LEN*6)
+#define DNSRAND_RESEED_OP2 DNSRAND_PRNGSTATE_INT32LEN
 #endif
 /*
  * This logic uses uclibc's random PRNG to generate random int. This keeps the
@@ -1151,6 +1152,12 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
  * it doesnt impact any other users of random prng calls in the system/program
  * compiled against uclibc.
  *
+ * NOTE: If your target doesnt support int64_t, then the code uses XOR instead of
+ * mult with mod based transform on the internal random sequence, to generate the
+ * random number that is returned. However as XOR is not a one way transform, this
+ * is supported only in DNSRAND_PRNGRUN_SHORT mode by default, which needs to be
+ * explicitly enabled by the platform developer, by defining the same.
+ *
  */
 int _dnsrand_getrandom_prng(int *rand_value) {
 	static int cnt = -1;
@@ -1179,7 +1186,16 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 	}
 	random_r(&prngData, &val);
 	random_r(&prngData, &val2);
-	calc = ((long)val * (long)val2) % INT_MAX;
+#ifdef INT64_MAX
+	calc = ((int64_t)val * (int64_t)val2) % INT_MAX;
+#else
+# ifdef DNSRAND_PRNGRUN_SHORT
+	calc = val ^ val2;
+# pragma GCC warning "[No int64] using xor based random number transform logic in short prng run mode, bcas int64_t not supported on this target"
+# else
+# pragma GCC error "[No int64] using xor based random number transform logic only supported with short prng runs, you may want to define DNSRAND_PRNGRUN_SHORT"
+# endif
+#endif
 	*rand_value = calc;
 	DPRINTF("uCLibC:DBUG:DnsRandGetRand: PRNGPlus: %d, 0x%lx 0x%lx 0x%lx\n", cnt, val, val2, *rand_value);
 	return 0;
