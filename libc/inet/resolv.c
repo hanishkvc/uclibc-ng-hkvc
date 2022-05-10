@@ -1046,6 +1046,9 @@ static int __decode_answer(const unsigned char *message, /* packet */
 	return i + RRFIXEDSZ + a->rdlength;
 }
 
+
+#if defined __UCLIBC_DNSRAND_MODE_URANDOM__ || defined __UCLIBC_DNSRAND_MODE_PRNGPLUS__
+
 /*
  * Get a random int from urandom.
  * Return 0 on success and -1 on failure.
@@ -1072,6 +1075,10 @@ int _dnsrand_getrandom_urandom(int *rand_value) {
 	return -1;
 }
 
+#endif
+
+#if defined __UCLIBC_DNSRAND_MODE_CLOCK__ || defined __UCLIBC_DNSRAND_MODE_PRNGPLUS__
+
 /*
  * Try get a sort of random int by looking at current time in system realtime clock.
  * Return 0 on success and -1 on failure.
@@ -1091,6 +1098,10 @@ int _dnsrand_getrandom_clock(int *rand_value) {
 #endif
 	return -1;
 }
+
+#endif
+
+#ifdef __UCLIBC_DNSRAND_MODE_PRNGPLUS__
 
 /*
  * Try get a random int by first checking at urandom and then at realtime clock.
@@ -1200,6 +1211,8 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 	DPRINTF("uCLibC:DBUG:DnsRandGetRand: PRNGPlus: %d, 0x%lx 0x%lx 0x%lx\n", cnt, val, val2, *rand_value);
 	return 0;
 }
+
+#endif
 
 /**
  * If DNS query's id etal is generated using a simple counter, then it can be
