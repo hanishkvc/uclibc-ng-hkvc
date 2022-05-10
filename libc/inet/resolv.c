@@ -1241,7 +1241,8 @@ int _dnsrand_getrandom_prng(int *rand_value) {
  * If system realtime clock is available on target and enabled, then if one wants to
  * keep things simple and use it directly, then define __UCLIBC_DNSRAND_MODE_CLOCK__.
  * Do note that this requires nanosecond resolution / granularity wrt the realtime
- * clock source to generate plausibly random values/ids.
+ * clock source to generate plausibly random values/ids. As processor &/ io performance
+ * improves, the effectiveness of this strategy can be impacted in some cases.
  *
  * If either the URandom or Clock based get random fails, then the logic is setup to
  * try fallback to the simple counter mode, with the help of the def_value, which is
