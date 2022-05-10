@@ -1202,9 +1202,9 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 #else
 # ifdef DNSRAND_PRNGRUN_SHORT
 	calc = val ^ val2;
-# pragma GCC warning "[No int64] using xor based random number transform logic in short prng run mode, bcas int64_t not supported on this target"
+# warning "[No int64] using xor based random number transform logic in short prng run mode, bcas int64_t not supported on this target"
 # else
-# pragma GCC error "[No int64] using xor based random number transform logic only supported with short prng runs, you may want to define DNSRAND_PRNGRUN_SHORT"
+# error "[No int64] using xor based random number transform logic only supported with short prng runs, you may want to define DNSRAND_PRNGRUN_SHORT"
 # endif
 #endif
 	*rand_value = calc;
