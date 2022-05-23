@@ -1132,6 +1132,20 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
 #define DNSRAND_RESEED_OP1 (DNSRAND_PRNGSTATE_INT32LEN*6)
 #define DNSRAND_RESEED_OP2 DNSRAND_PRNGSTATE_INT32LEN
 #endif
+
+#define DNSRAND_TIMEFORCED_RESEED_CHECKMOD (DNSRAND_PRNGSTATE_INT32LEN/4)
+#define DNSRAND_TIMEFORCED_RESEED_SECS 120
+
+time_t clock_getcursec() {
+#if defined __USE_POSIX199309 && defined __UCLIBC_HAS_REALTIME__
+	struct timespec ts;
+	if (clock_gettime(CLOCK_REALTIME, &ts) == 0) {
+		return ts.tv_sec;
+	}
+#endif
+	return DNSRAND_TIMEFORCED_RESEED_SECS+1;
+}
+
 /*
  * This logic uses uclibc's random PRNG to generate random int. This keeps the
  * logic fast by not depending on a more involved CPRNG kind of logic nor on a
@@ -1172,6 +1186,9 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
  *
  */
 int _dnsrand_getrandom_prng(int *rand_value) {
+	static time_t reSeededSec = 0;
+	time_t curSec = 0;
+	bool bTimeForcedReSeed = 0;
 	static int cnt = -1;
 	static int nextReSeedWindow = DNSRAND_RESEED_OP1;
 	static int32_t prngState[DNSRAND_PRNGSTATE_INT32LEN]; /* prng logic internally assumes int32_t wrt state array, so to help align if required */
@@ -1186,7 +1203,13 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 		initstate_r(prngSeed, (char*)&prngState, DNSRAND_PRNGSTATE_INT32LEN*4, &prngData);
 	}
 	cnt += 1;
-	if ((cnt % nextReSeedWindow) == 0) {
+	if ((cnt % DNSRAND_TIMEFORCED_RESEED_CHECKMOD) == 0) {
+		curSec = clock_getcursec();
+		if ((curSec-reSeededSec) > DNSRAND_TIMEFORCED_RESEED_SECS) bTimeForcedReSeed = 1;
+	}
+	if (((cnt % nextReSeedWindow) == 0) || bTimeForcedReSeed) {
+		if (curSec == 0) curSec = clock_getcursec();
+		reSeededSec = curSec;
 		if (_dnsrand_getrandom_urcl(&prngSeed) != 0) {
 			random_r(&prngData, &prngSeed);
 		}
