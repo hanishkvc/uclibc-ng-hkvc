@@ -248,6 +248,7 @@ Domain name in a message can be represented as either:
 #include <netdb.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <time.h>
 #include <arpa/nameser.h>
 #include <sys/utsname.h>
