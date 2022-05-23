@@ -32,7 +32,7 @@ clean:
 	rm testdns || /bin/true
 
 test: testdns
-	./testdns google.com microsoft.com yahoo.com facebook.com intel.com ti.com analog.com archive.org ubuntu.com ibm.com kernel.org redhat.com amd.com
+	./testdns google.com microsoft.com yahoo.com facebook.com intel.com ti.com analog.com archive.org ubuntu.com ibm.com kernel.org redhat.com amd.com google.com microsoft.com yahoo.com facebook.com intel.com ti.com analog.com archive.org ubuntu.com ibm.com kernel.org redhat.com amd.com google.com microsoft.com yahoo.com facebook.com intel.com ti.com analog.com archive.org ubuntu.com ibm.com kernel.org redhat.com amd.com google.com microsoft.com yahoo.com facebook.com intel.com ti.com analog.com archive.org ubuntu.com ibm.com kernel.org redhat.com amd.com google.com microsoft.com yahoo.com facebook.com intel.com ti.com analog.com archive.org ubuntu.com ibm.com kernel.org redhat.com amd.com google.com microsoft.com yahoo.com facebook.com intel.com ti.com analog.com archive.org ubuntu.com ibm.com kernel.org redhat.com amd.com google.com microsoft.com yahoo.com facebook.com intel.com ti.com analog.com archive.org ubuntu.com ibm.com kernel.org redhat.com amd.com
 
 tcpdump:
 	sudo tcpdump udp
