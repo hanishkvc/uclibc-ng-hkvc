@@ -6,7 +6,11 @@ LPATH=${BPATH}/lib/
 # Dont forget -nostdinc++ for c++ files
 CLEANSLATE=-nostdinc -nostdlib
 
-ISET=-I /usr/lib/gcc/x86_64-linux-gnu/8/include/ -I ../../linux-headers/include/ -I /usr/x86_64-linux-uclibc/usr/include/
+ISET1=-I /usr/lib/gcc/x86_64-linux-gnu/8/include/
+ISET2=-I /usr/x86_64-linux-uclibc/usr/include/
+ISET3=-I ../../linux-headers/include/
+ISET4=-I ../../linux-headers/include/linux
+ISET=${ISET1} ${ISET2} ${ISET3} ${ISET4}
 
 # Pass the required set of system libraries/object files.
 # crt1.o : _start
