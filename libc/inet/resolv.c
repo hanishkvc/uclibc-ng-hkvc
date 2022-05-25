@@ -1136,14 +1136,16 @@ int _dnsrand_getrandom_urcl(int *rand_value) {
 #define DNSRAND_TIMEFORCED_RESEED_CHECKMOD (DNSRAND_PRNGSTATE_INT32LEN/8)
 #define DNSRAND_TIMEFORCED_RESEED_SECS 120
 
-time_t clock_getcursec() {
+time_t clock_getcursec(void) {
+	static time_t dummyTime = 0;
 #if defined __USE_POSIX199309 && defined __UCLIBC_HAS_REALTIME__
 	struct timespec ts;
 	if (clock_gettime(CLOCK_REALTIME, &ts) == 0) {
 		return ts.tv_sec;
 	}
 #endif
-	return DNSRAND_TIMEFORCED_RESEED_SECS+1;
+	dummyTime += DNSRAND_TIMEFORCED_RESEED_SECS;
+	return dummyTime;
 }
 
 /*
@@ -1205,7 +1207,9 @@ int _dnsrand_getrandom_prng(int *rand_value) {
 	cnt += 1;
 	if ((cnt % DNSRAND_TIMEFORCED_RESEED_CHECKMOD) == 0) {
 		curSec = clock_getcursec();
-		if ((curSec-reSeededSec) > DNSRAND_TIMEFORCED_RESEED_SECS) bTimeForcedReSeed = 1;
+		if ((curSec - reSeededSec) >= DNSRAND_TIMEFORCED_RESEED_SECS) {
+			bTimeForcedReSeed = 1;
+		}
 	}
 	if (((cnt % nextReSeedWindow) == 0) || bTimeForcedReSeed) {
 		if (curSec == 0) curSec = clock_getcursec();
